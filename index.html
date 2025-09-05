@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zig-Automat">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0c10">
+<title>Zig-Automat</title>
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230b0c10'/><text x='50' y='60' font-size='56' text-anchor='middle' fill='%23ffffff'>Z</text></svg>">
+<style>
+  /* ===== iOS-first Design (safe-areas, large targets, dynamic type, glass) ===== */
+  :root{
+    --bg: #0b0c10;
+    --bg-2:#0f1117;
+    --text:#f7f9fc;
+    --muted:#b8c0cc;
+    --card: rgba(255,255,255,0.08);
+    --glass: rgba(255,255,255,0.12);
+    --line: rgba(255,255,255,0.12);
+    --accent:#4da3ff;
+    --accent-2:#63ffb3;
+    --radius: 16px;
+    --shadow: 0 8px 28px rgba(0,0,0,.45);
+  }
+  @media (prefers-color-scheme: light) {
+    :root{
+      --bg:#f6f7fb; --bg-2:#ffffff; --text:#0b0c10; --muted:#4a5568;
+      --card: rgba(0,0,0,0.04); --glass: rgba(255,255,255,0.85); --line: rgba(0,0,0,0.08);
+      --shadow: 0 8px 28px rgba(0,0,0,.08);
+    }
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{ height:100%; margin:0; background: var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Segoe UI, Roboto, Helvetica, Arial;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  }
+  body{
+    background:
+      radial-gradient(1200px 700px at 0% -10%, rgba(77,163,255,0.18), transparent 45%),
+      radial-gradient(900px 600px at 110% 0%, rgba(99,255,179,0.20), transparent 50%),
+      var(--bg);
+  }
+
+  /* App Frame */
+  .app{
+    position:fixed; inset:0;
+    padding-top: calc(env(safe-area-inset-top) + 56px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 56px);
+  }
+
+  /* Navigation (top) */
+  .nav{
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    padding-top: env(safe-area-inset-top);
+    background: linear-gradient(180deg, rgba(17,19,25,.85), rgba(17,19,25,.55));
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{
+    padding:12px 14px 10px;
+    display:flex; gap:10px; align-items:center;
+  }
+  .title{
+    font-weight:800; letter-spacing:.2px; font-size:18px;
+  }
+  .status{
+    margin-left:auto;
+    padding:6px 10px; font-size:12px; border-radius:999px;
+    border:1px solid var(--line);
+    background: var(--card);
+  }
+
+  /* Search pill */
+  .searchbar{
+    padding: 0 14px 12px;
+  }
+  .search{
+    display:flex; gap:8px; align-items:center;
+    background: var(--glass); border:1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .search input{
+    appearance:none; border:none; outline:none; background:transparent; color:var(--text);
+    width:100%; font-size:16px;
+  }
+  .btn{
+    appearance:none; border:none; border-radius:12px; font-weight:700;
+    padding:10px 14px; min-width:44px; min-height:44px; color:#081018;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: var(--shadow);
+  }
+  .btn.ghost{
+    background: var(--card); color: var(--text); border:1px solid var(--line);
+    box-shadow:none;
+  }
+  .btn.circle{ border-radius: 999px; width:44px; height:44px; display:inline-grid; place-items:center; padding:0; }
+
+  /* Segmented control */
+  .seg{
+    display:flex; gap:6px; padding:0 14px 12px;
+  }
+  .seg button{
+    flex:1; padding:10px 12px; border-radius:12px; border:1px solid var(--line);
+    background: var(--card); color:var(--text); font-weight:700;
+  }
+  .seg button.active{
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color:#081018;
+  }
+
+  /* Views */
+  .views{ position: absolute; inset: calc(env(safe-area-inset-top) + 106px) 0 calc(env(safe-area-inset-bottom) + 56px) 0; }
+  .view{ position:absolute; inset:0; opacity:0; pointer-events:none; transition: opacity .25s ease; }
+  .view.active{ opacity:1; pointer-events:auto; }
+
+  /* Map */
+  #map{ background:#0a0d12; }
+  .overlay {
+    position:absolute; left:0; right:0; top:0; display:flex; gap:8px; padding:10px 14px;
+    pointer-events:none;
+  }
+  .overlay .chip{
+    pointer-events:auto;
+    padding:8px 10px; border-radius:12px; border:1px solid var(--line);
+    background: var(--card); color:var(--text); font-size:13px;
+  }
+
+  /* List */
+  .list{ height:100%; overflow:auto; -webkit-overflow-scrolling: touch; padding: 6px 12px 12px; }
+  .card{
+    background: var(--glass); border:1px solid var(--line); border-radius: 14px;
+    margin: 8px 2px; padding: 12px;
+    box-shadow: var(--shadow);
+  }
+  .card h3{ margin:0 0 6px; font-size:16px; font-weight:800; }
+  .meta{ font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .chip{
+    display:inline-block; font-size:12px; padding:6px 10px; border-radius:999px;
+    background: var(--card); border:1px solid var(--line);
+  }
+  .open-map{ margin-left:auto; }
+
+  /* Bottom bar */
+  .tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:999;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: linear-gradient(180deg, rgba(17,19,25,.85), rgba(17,19,25,.95));
+    border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 8px 12px calc(env(safe-area-inset-bottom) + 8px);
+  }
+  .radius{
+    display:flex; align-items:center; gap:10px; flex:1;
+    background: var(--glass); border:1px solid var(--line); border-radius:12px;
+    padding: 8px 10px;
+  }
+  input[type="range"]{ width:100%; }
+  .actions{ display:flex; gap:8px; }
+
+  /* Toast + Sheetless tip */
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom) + 88px);
+    background: rgba(0,0,0,.8); color:#fff; padding:10px 14px; border-radius:999px;
+    opacity:0; pointer-events:none; transition:.25s ease; z-index:2000;
+  }
+  .toast.show{ opacity:1; }
+
+  .a2hs{
+    position:fixed; top: calc(env(safe-area-inset-top) + 8px); left:12px; right:12px; z-index:1100;
+    background: var(--glass); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    display:none;
+  }
+
+  /* Minimal slippy map tiles + markers */
+  .dot{
+    width:16px; height:16px; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, #6affb9, #4da3ff);
+    border: 2px solid #081018;
+    box-shadow: 0 0 0 4px rgba(77,163,255,0.22), 0 10px 16px rgba(0,0,0,0.35);
+  }
+  .me-dot{
+    width:18px; height:18px; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, #fff, #cbe3ff);
+    border: 2px solid #081018;
+    box-shadow: 0 0 0 5px rgba(255,255,255,0.25), 0 10px 16px rgba(0,0,0,0.35);
+  }
+  .attribution{
+    position:absolute; right:8px; bottom:8px; font-size:11px; color:var(--muted);
+    background: var(--glass); border:1px solid var(--line); padding:4px 8px; border-radius:10px;
+  }
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="nav-inner">
+      <div class="title">Zig‑Automat</div>
+      <div class="status" id="statusPill">bereit</div>
+      <button class="btn circle ghost" id="infoBtn" aria-label="Info">i</button>
+    </div>
+    <div class="searchbar">
+      <div class="search">
+        <span aria-hidden="true">🔎</span>
+        <input id="searchInput" type="text" inputmode="search" placeholder="Ort suchen (z. B. Selbold)">
+        <button class="btn ghost" id="searchBtn">Suchen</button>
+      </div>
+    </div>
+    <div class="seg">
+      <button id="tabMap" class="active">Karte</button>
+      <button id="tabList">Liste</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="views">
+      <div id="viewMap" class="view active">
+        <div id="map"></div>
+        <div class="overlay">
+          <div class="chip" id="countPill" style="display:none">0 Funde</div>
+          <div class="chip" id="cityPill" style="display:none"></div>
+        </div>
+        <div class="attribution">
+          © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:inherit">OSM</a>
+        </div>
+      </div>
+      <div id="viewList" class="view">
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="radius">
+      <span>Radius</span>
+      <input id="radiusRange" type="range" min="300" max="8000" step="100" value="2000">
+      <span id="radiusLabel">2.0 km</span>
+    </div>
+    <div class="actions">
+      <button class="btn circle ghost" id="recenterBtn" title="Zentrieren">⌖</button>
+      <button class="btn circle ghost" id="refreshBtn" title="Neu laden">⟳</button>
+      <button class="btn" id="nearbyBtn">📍 Nähe</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="a2hs" id="a2hsTip"><b>Tipp:</b> In Safari „Teilen“ → <b>Zum Home‑Bildschirm</b> für echtes App‑Feeling.</div>
+
+<script>
+/* ===== Minimal Slippy Map (same as previous version, compact) ===== */
+class MiniMap {
+  constructor(container, opts={}){
+    this.container = container;
+    this.opts = Object.assign({zoom: 15, center: [50.1109, 8.6821]}, opts);
+    this.center = this.opts.center.slice();
+    this.zoom = this.opts.zoom;
+    this.tileSize = 256;
+    this.minZoom = 3; this.maxZoom = 19;
+    this.layers = [];
+    this._setup();
+    this.setView(this.center, this.zoom);
+    window.addEventListener("resize", ()=>this._render());
+  }
+  _setup(){
+    this.container.style.position = "absolute";
+    this.container.style.inset = "0";
+    this.container.style.overflow = "hidden";
+    this.tilePane = document.createElement("div");
+    this.markerPane = document.createElement("div");
+    Object.assign(this.tilePane.style,{position:"absolute", inset:"0"});
+    Object.assign(this.markerPane.style,{position:"absolute", inset:"0"});
+    this.container.appendChild(this.tilePane);
+    this.container.appendChild(this.markerPane);
+    // gestures
+    let dragging=false, last={x:0,y:0};
+    this.container.addEventListener("pointerdown",e=>{dragging=true; last.x=e.clientX; last.y=e.clientY; this.container.setPointerCapture(e.pointerId)});
+    this.container.addEventListener("pointerup",e=>{dragging=false; this.container.releasePointerCapture(e.pointerId)});
+    this.container.addEventListener("pointercancel",()=>dragging=false);
+    this.container.addEventListener("pointermove",e=>{
+      if(!dragging) return;
+      const dx=e.clientX-last.x, dy=e.clientY-last.y;
+      last.x=e.clientX; last.y=e.clientY;
+      this._panBy(dx, dy);
+    });
+    this.container.addEventListener("wheel",(e)=>{
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      if(delta<0) this.setView(this.center, Math.min(this.maxZoom, this.zoom+1));
+      else this.setView(this.center, Math.max(this.minZoom, this.zoom-1));
+    }, {passive:false});
+  }
+  _lngLatToTileXY(lng, lat, z){
+    const n = Math.pow(2, z);
+    const x = n * ((lng + 180) / 360);
+    const latRad = lat * Math.PI / 180;
+    const y = n * (1 - (Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI)) / 2;
+    return [x,y];
+  }
+  _lngLatToPixel(lng, lat, z){
+    const [x,y] = this._lngLatToTileXY(lng, lat, z);
+    return [x*this.tileSize, y*this.tileSize];
+  }
+  _pixelToLngLat(x, y, z){
+    const n = Math.pow(2, z);
+    const lng = x/(this.tileSize*n)*360 - 180;
+    const y2 = y/(this.tileSize*n);
+    const latRad = Math.atan(Math.sinh(Math.PI*(1-2*y2)));
+    const lat = latRad*180/Math.PI;
+    return [lng, lat];
+  }
+  setView(center, zoom){ this.center=center.slice(); this.zoom=zoom; this._render(); }
+  _panBy(dx, dy){
+    const size=this.container.getBoundingClientRect();
+    const [px,py] = this._lngLatToPixel(this.center[1], this.center[0], this.zoom);
+    const nx = px - dx, ny = py - dy;
+    const [lng, lat] = this._pixelToLngLat(nx, ny, this.zoom);
+    this.center=[lat,lng]; this._render();
+  }
+  _render(){
+    const size=this.container.getBoundingClientRect();
+    const [px,py] = this._lngLatToPixel(this.center[1], this.center[0], this.zoom);
+    const leftPx = px - size.width/2;
+    const topPx  = py - size.height/2;
+    const tileX0 = Math.floor(leftPx/this.tileSize);
+    const tileY0 = Math.floor(topPx/this.tileSize);
+    const cols = Math.ceil(size.width/this.tileSize)+2;
+    const rows = Math.ceil(size.height/this.tileSize)+2;
+    this.tilePane.innerHTML="";
+    for(let y=0;y<rows;y++){
+      for(let x=0;x<cols;x++){
+        const tx = tileX0+x, ty=tileY0+y;
+        const img = document.createElement("img");
+        img.draggable=false; img.decoding="async"; img.loading="lazy";
+        const left = tx*this.tileSize - leftPx;
+        const top  = ty*this.tileSize - topPx;
+        Object.assign(img.style,{position:"absolute", left:left+"px", top:top+"px",
+          width:this.tileSize+"px", height:this.tileSize+"px"});
+        const n = Math.pow(2,this.zoom);
+        const txMod = ((tx % n)+n)%n;
+        if(ty<0||ty>=n){ img.style.display="none"; }
+        img.src = `https://tile.openstreetmap.org/${this.zoom}/${txMod}/${ty}.png`;
+        this.tilePane.appendChild(img);
+      }
+    }
+    this._renderMarkers();
+  }
+  addDot(lat, lng, className="dot", data={}){
+    const el = document.createElement("div");
+    el.className=className; el.style.position="absolute";
+    this.markerPane.appendChild(el);
+    const m={lat,lng,el,data}; this.layers.push(m);
+    this._renderMarkers(); return m;
+  }
+  clearMarkers(){ this.layers.forEach(m=>m.el.remove()); this.layers=[]; }
+  fitBounds(bounds){
+    const [sLat,wLng]=bounds[0],[nLat,eLng]=bounds[1];
+    const cLat=(sLat+nLat)/2, cLng=(wLng+eLng)/2;
+    let z=this.maxZoom;
+    for(; z>=this.minZoom; z--){
+      const [px1,py1]=this._lngLatToPixel(wLng,nLat,z);
+      const [px2,py2]=this._lngLatToPixel(eLng,sLat,z);
+      const w=Math.abs(px2-px1), h=Math.abs(py2-py1);
+      const size=this.container.getBoundingClientRect();
+      if(w < size.width*0.85 && h < size.height*0.85) break;
+    }
+    this.setView([cLat,cLng], z);
+  }
+  _renderMarkers(){
+    const size=this.container.getBoundingClientRect();
+    const [px,py] = this._lngLatToPixel(this.center[1], this.center[0], this.zoom);
+    const leftPx = px - size.width/2;
+    const topPx  = py - size.height/2;
+    const n = Math.pow(2,this.zoom);
+    this.layers.forEach(m=>{
+      const [mx,my] = this._lngLatToPixel(m.lng, m.lat, this.zoom);
+      m.el.style.left = (mx - leftPx - 8) + "px";
+      m.el.style.top  = (my - topPx - 8) + "px";
+      if(my<0 || my>n*this.tileSize) m.el.style.display="none"; else m.el.style.display="block";
+      m.el.title = m.data?.title || "";
+    });
+  }
+}
+
+/* ===== App Logic ===== */
+const $ = s=>document.querySelector(s);
+const statusPill = $("#statusPill");
+const countPill = $("#countPill");
+const cityPill = $("#cityPill");
+const list = $("#list");
+const toastEl = $("#toast");
+const radiusRange = $("#radiusRange");
+const radiusLabel = $("#radiusLabel");
+const tabMap = $("#tabMap");
+const tabList = $("#tabList");
+const viewMap = $("#viewMap");
+const viewList = $("#viewList");
+
+let map, myPosMarker;
+let results = [];
+let currentCenter = [50.1109, 8.6821]; // Frankfurt Default
+let currentRadius = parseInt(radiusRange.value,10);
+
+function showToast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"), 1800); }
+const km = m => (m/1000).toFixed(1);
+const formatRadius = r => r>=1000 ? (r/1000).toFixed(1)+" km" : r+" m";
+function haversine(lat1, lon1, lat2, lon2){
+  const R=6371e3, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+radiusLabel.textContent = formatRadius(currentRadius);
+radiusRange.addEventListener("input", e=>{
+  currentRadius = parseInt(e.target.value,10);
+  radiusLabel.textContent = formatRadius(currentRadius);
+});
+
+async function geocode(query){
+  const url = "https://nominatim.openstreetmap.org/search?format=json&q="+encodeURIComponent(query)+"&limit=1&addressdetails=1";
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error("Geocoding fehlgeschlagen");
+  const j = await res.json();
+  if(!j.length) throw new Error("Nichts gefunden");
+  return [parseFloat(j[0].lat), parseFloat(j[0].lon)];
+}
+
+async function reverseGeocode(lat, lon){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+    const res = await fetch(url); if(!res.ok) return "";
+    const j = await res.json();
+    return j.address && (j.address.city || j.address.town || j.address.village || j.address.hamlet || "") || "";
+  }catch{ return "";}
+}
+
+async function fetchOverpass(lat, lon, radius){
+  const q = `[out:json][timeout:25];
+  (
+    node["vending"="cigarettes"](around:${radius},${lat},${lon});
+    node["amenity"="vending_machine"]["vending"~"cigarettes|tobacco"](around:${radius},${lat},${lon});
+    node["vending"="tobacco"](around:${radius},${lat},${lon});
+  );
+  out body;`;
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method:"POST",
+    headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+    body:"data="+encodeURIComponent(q)
+  });
+  if(!res.ok) throw new Error("Overpass Fehler");
+  const j = await res.json();
+  return j.elements || [];
+}
+
+function buildCard(item, myLat, myLon){
+  const {lat, lon, tags={}} = item;
+  const dist = (myLat && myLon) ? haversine(myLat,myLon,lat,lon) : null;
+  const name = tags.name || "Zigarettenautomat";
+  const vendor = tags.brand || tags.operator || null;
+  const payments = ["payment:coins","payment:notes","payment:cards","payment:contactless"].filter(k=>tags[k]==="yes").map(k=>k.replace("payment:",""));
+  const indoor = tags.indoor==="yes" ? "innen" : null;
+  const addrParts = ["addr:street","addr:housenumber","addr:city"].map(k=>tags[k]||"");
+  const addr = addrParts.filter(Boolean).join(" ");
+  const mapUrl = `maps://?q=Zigarettenautomat&ll=${lat},${lon}`;
+  const div = document.createElement("div");
+  div.className="card";
+  div.innerHTML = `
+    <h3>${name}</h3>
+    <div class="meta">${addr || ""} ${dist!==null?`· ${km(dist)} km`:""}</div>
+    <div class="row">
+      ${vendor?`<span class="chip">Betreiber: ${vendor}</span>`:""}
+      ${indoor?`<span class="chip">Standort: ${indoor}</span>`:""}
+      ${payments.length?`<span class="chip">Zahlung: ${payments.join(", ")}</span>`:""}
+      <a class="btn open-map" href="${mapUrl}" target="_blank" rel="noopener">Apple Karten</a>
+    </div>
+  `;
+  div.addEventListener("click", ()=>{
+    // center map on tap in list
+    map.setView([lat,lon], Math.max(16,map.zoom));
+    tabMap.click();
+  }, {passive:true});
+  return div;
+}
+
+function renderList(items, myLat, myLon){
+  list.innerHTML="";
+  if(!items.length){
+    list.innerHTML = `<div class="card"><h3>Keine Automaten</h3><div class="meta">Vergrößere den Radius oder suche einen anderen Ort.</div></div>`;
+    return;
+  }
+  items.forEach(it=> list.appendChild(buildCard(it, myLat, myLon)) );
+}
+
+function updateCount(n){
+  if(n>0){ countPill.style.display="inline-block"; countPill.textContent = n + " Fund" + (n>1?"e":""); }
+  else{ countPill.style.display="none"; }
+}
+
+async function searchAt(lat, lon, opts={recenter:true}){
+  statusPill.textContent = "lädt…";
+  try{
+    currentCenter = [lat,lon];
+    if(opts.recenter) map.setView([lat,lon], Math.max(map.zoom, 15));
+    // my marker
+    if(myPosMarker) myPosMarker.el.remove();
+    myPosMarker = map.addDot(lat, lon, "me-dot", {title:"Ich"});
+    const [cityName, elements] = await Promise.all([reverseGeocode(lat,lon), fetchOverpass(lat,lon,currentRadius)]);
+    cityPill.style.display = cityName ? "inline-block" : "none";
+    cityPill.textContent = cityName || "";
+    // dedupe + sort
+    const seen=new Set(), uniq=[];
+    elements.forEach(e=>{if(!seen.has(e.id)){seen.add(e.id); uniq.push(e)}});
+    uniq.forEach(e=> e._dist = haversine(lat,lon,e.lat,e.lon));
+    uniq.sort((a,b)=>a._dist-b._dist);
+    results = uniq;
+    // markers
+    map.clearMarkers();
+    myPosMarker = map.addDot(lat, lon, "me-dot", {title:"Ich"});
+    const bounds = [[lat,lon],[lat,lon]];
+    results.forEach(e=>{
+      map.addDot(e.lat, e.lon, "dot", {title: e.tags?.name || "Zigarettenautomat"});
+      bounds[0][0] = Math.min(bounds[0][0], e.lat);
+      bounds[0][1] = Math.min(bounds[0][1], e.lon);
+      bounds[1][0] = Math.max(bounds[1][0], e.lat);
+      bounds[1][1] = Math.max(bounds[1][1], e.lon);
+    });
+    if(results.length) map.fitBounds(bounds);
+    renderList(results, lat, lon);
+    updateCount(results.length);
+    statusPill.textContent = cityName || "fertig";
+    showToast(results.length ? `${results.length} Automat${results.length>1?"en":""} gefunden` : "Nichts gefunden");
+  }catch(err){
+    console.error(err);
+    statusPill.textContent = "Fehler";
+    showToast("Fehler beim Laden");
+  }
+}
+
+/* Tabs */
+function setTab(which){
+  if(which==="map"){
+    tabMap.classList.add("active"); tabList.classList.remove("active");
+    viewMap.classList.add("active"); viewList.classList.remove("active");
+  }else{
+    tabList.classList.add("active"); tabMap.classList.remove("active");
+    viewList.classList.add("active"); viewMap.classList.remove("active");
+  }
+}
+
+async function init(){
+  // A2HS tip
+  setTimeout(()=>{ const el=$("#a2hsTip"); el.style.display="block"; setTimeout(()=>el.style.display="none", 3500); }, 1000);
+
+  map = new MiniMap(document.getElementById("map"), {center: currentCenter, zoom: 15});
+
+  // geolocation
+  if("geolocation" in navigator){
+    navigator.geolocation.getCurrentPosition(
+      pos=>searchAt(pos.coords.latitude, pos.coords.longitude),
+      ()=>{ showToast("Standort abgelehnt – Ort eingeben"); searchAt(currentCenter[0], currentCenter[1]); },
+      {enableHighAccuracy:true, timeout:8000, maximumAge:10000}
+    );
+  }else{
+    searchAt(currentCenter[0], currentCenter[1]);
+  }
+
+  // UI events
+  $("#nearbyBtn").addEventListener("click", ()=>{
+    if("geolocation" in navigator){
+      navigator.geolocation.getCurrentPosition(
+        pos=>searchAt(pos.coords.latitude, pos.coords.longitude, {recenter:true}),
+        ()=>showToast("Kein Standort – Ort eingeben")
+      );
+    } else showToast("Geolocation nicht verfügbar");
+  });
+  $("#recenterBtn").addEventListener("click", ()=> map.setView(currentCenter, Math.max(15,map.zoom)) );
+  $("#refreshBtn").addEventListener("click", ()=> searchAt(currentCenter[0], currentCenter[1], {recenter:false}) );
+
+  $("#searchBtn").addEventListener("click", async ()=>{
+    const q = $("#searchInput").value.trim();
+    if(!q){ showToast("Bitte Suchbegriff eingeben"); return; }
+    statusPill.textContent = "suche…";
+    try{
+      const [lat, lon] = await geocode(q);
+      searchAt(lat, lon, {recenter:true});
+    }catch{ statusPill.textContent="Fehler"; showToast("Ort nicht gefunden"); }
+  });
+  $("#searchInput").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#searchBtn").click(); });
+
+  radiusRange.addEventListener("change", ()=> searchAt(currentCenter[0], currentCenter[1], {recenter:false}) );
+
+  tabMap.addEventListener("click", ()=>setTab("map"));
+  tabList.addEventListener("click", ()=>setTab("list"));
+  $("#infoBtn").addEventListener("click", ()=>{
+    showToast("Daten: OpenStreetMap · Tap auf Listeneintrag zentriert die Karte.");
+  });
+}
+
+window.addEventListener("load", init);
+</script>
+</body>
+</html>
