@@ -1,535 +1,754 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>GTA – Alzenau POI Map</title>
-  <style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Instant P2P Chat — OneFile</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="P2P Chat">
+<style>
+  :root{
+    --bg: #0b0c0f;
+    --bg-elev: #14161a;
+    --bg-input: #1a1c22;
+    --t-primary: #ffffff;
+    --t-secondary: #aeb3bd;
+    --t-muted:#7b818b;
+    --accent: #0a84ff; /* iOS blue */
+    --sent: #0a84ff;
+    --recv: #262b33;
+    --border: #23262c;
+    --ok: #30d158;
+    --warn: #ff9f0a;
+    --err: #ff453a;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --radius: 18px;
+  }
+  @media (prefers-color-scheme: light){
     :root{
-      --bg: #0b0b0f;
-      --fg: #f7f7f8;
-      --muted: #aab4b6;
-      --tint: #12f27b;
-      --accent: #ff69f0; /* vice vibe */
-      --glass: rgba(255,255,255,.08);
-      --shadow: 0 12px 34px rgba(0,0,0,.40);
-      --radius: 18px;
-      --safe-top: env(safe-area-inset-top);
-      --safe-bottom: env(safe-area-inset-bottom);
-      --safe-left: env(safe-area-inset-left);
-      --safe-right: env(safe-area-inset-right);
+      --bg: #f5f6f8;
+      --bg-elev:#ffffff;
+      --bg-input:#f2f3f6;
+      --t-primary:#0b0c0f;
+      --t-secondary:#3b3f45;
+      --t-muted:#6b7280;
+      --recv:#e9edf3;
+      --border:#e6e9ef;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
     }
-    *{box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
-    html,body{height:100%;}
-    body{
-      margin:0;
-      background: radial-gradient(1200px 800px at 70% -10%, #1a1f2e 0%, #0b0b0f 40%, #060608 100%);
-      color:var(--fg);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, system-ui, sans-serif;
-      overscroll-behavior: none;
-    }
-    .app{
-      position:fixed; inset:0;
-      display:flex; flex-direction:column;
-      padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 12px);
-      gap:10px;
-    }
-    .navbar{
-      display:flex; align-items:center; justify-content:space-between;
-      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      backdrop-filter: blur(16px) saturate(120%);
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 28px;
-      padding: 8px 12px;
-      box-shadow: var(--shadow);
-    }
-    .title{ display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px; }
-    .title .chip{ font-weight:700; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); }
-    .btn{
-      appearance:none; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08);
-      color:var(--fg); border-radius:14px; padding:8px 12px; font-weight:700;
-      font-size:14px; cursor:pointer; backdrop-filter: blur(10px);
-    }
-    .btn:active{ transform: translateY(1px); }
-    .content{ position:relative; flex:1; min-height:0; display:grid; grid-template-rows: auto 1fr auto; gap:10px; }
-
-    .filterbar{
-      display:flex; gap:8px; overflow:auto; padding:6px;
-      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px; box-shadow: var(--shadow);
-      -webkit-overflow-scrolling: touch;
-    }
-    .toggle{
-      display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px;
-      border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); white-space:nowrap; font-weight:600;
-      cursor:pointer; user-select:none;
-    }
-    .toggle input{ display:none; }
-    .toggle.active{ background:rgba(18,242,123,.14); border-color: rgba(18,242,123,.44); }
-
-    .mapwrap{ position:relative; min-height:0; }
-    .card{
-      position:relative; height:100%;
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: var(--radius);
-      overflow:hidden; box-shadow: var(--shadow);
-    }
-    .card-head{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.08); }
-    .head-left{ display:flex; align-items:center; gap:10px; }
-    .search{
-      display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px;
-      border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.06);
-    }
-    .search input{
-      background:transparent; border:0; outline:0; color:var(--fg); width:160px; font-size:14px;
-    }
-    .tools{ display:flex; gap:8px; }
-    #map{ position:absolute; inset:0; background:#0e0f12; overflow:hidden; filter: saturate(140%) hue-rotate(140deg) contrast(1.1) brightness(0.95); }
-    .tiles{ position:absolute; top:0; left:0; will-change: transform; }
-    .tile{ position:absolute; width:256px; height:256px; image-rendering: -webkit-optimize-contrast; }
-
-    /* GTA markers */
-    .marker{
-      position:absolute; transform: translate(-50%, -100%); will-change: transform, opacity;
-      pointer-events:auto; cursor:pointer; z-index:2;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,.6));
-    }
-    .marker .blip{
-      width: 22px; height: 22px; border-radius: 4px; display:grid; place-items:center;
-      background: rgba(0,0,0,.85); border: 1px solid rgba(255,255,255,.15);
-    }
-    .marker .pulse{
-      position:absolute; width:40px; height:40px; left:50%; top:50%; transform: translate(-50%,-55%);
-      border-radius:50%; pointer-events:none; opacity:.45;
-      box-shadow: 0 0 14px var(--tint), inset 0 0 18px var(--tint);
-      animation: pulse 2.2s infinite ease-out;
-    }
-    @keyframes pulse{ 0%{ opacity:.45; transform: translate(-50%,-55%) scale(.6);} 70%{opacity:0; transform: translate(-50%,-55%) scale(1.4);} 100%{opacity:0;}}
-
-    /* Tooltip / info card */
-    .infocard{
-      position:absolute; min-width: 220px; max-width: 80vw; transform: translate(-50%, -110%);
-      background:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,.65));
-      border:1px solid rgba(255,255,255,.18); border-radius:14px; padding:10px 12px; z-index:3;
-      box-shadow: 0 12px 28px rgba(0,0,0,.45); backdrop-filter: blur(10px);
-      display:none;
-    }
-    .infocard .name{ font-weight:800; margin-bottom:6px; }
-    .infocard .meta{ color:var(--muted); font-size:12px; }
-    .close-tip{ position:absolute; right:6px; top:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:8px; padding:2px 6px; font-size:12px; cursor:pointer; }
-
-    /* HUD bits */
-    .minimap-wrap{
-      position:absolute; bottom: 14px; left: 14px; width:min(46vw, 300px); height:min(46vw, 300px);
-      pointer-events:none;
-    }
-    .minimap{
-      position:absolute; inset:0; border-radius:50%; overflow:hidden; border: 6px solid rgba(0,0,0,.85);
-      box-shadow: 0 0 0 2px #0a0a0a, 0 0 38px rgba(0,0,0,.8);
-      clip-path: circle(50% at 50% 50%);
-      pointer-events:none;
-    }
-    .north{ position:absolute; top:6px; left:50%; transform:translateX(-50%); font-weight:900; color:#e3f7e8; text-shadow:0 2px 6px rgba(0,0,0,.7); pointer-events:none; }
-    .player{ position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px 0 0 -7px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); pointer-events:none; }
-
-    .legend{
-      display:flex; gap:8px; overflow:auto; padding:6px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-    }
-    .legend .item{ display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap; }
-    .legend .swatch{ width:14px; height:14px; border-radius:3px; }
-
-    .attr{
-      position:absolute; right:8px; bottom:8px; font-size:11px; color:#c9d7cd;
-      background:rgba(0,0,0,.45); padding:4px 8px; border-radius:8px;
-      border:1px solid rgba(255,255,255,.12); z-index:4;
-    }
-    .attr a{ color:#9fffbf; text-decoration:none; }
-
-    .tabbar{ display:flex; gap:10px; justify-content:space-around; align-items:center; padding: 8px 12px; border-radius: 18px; border:1px solid rgba(255,255,255,.12);
-      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06)); box-shadow: var(--shadow);
-    }
-    .tab{ flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 10px; border-radius:12px; font-weight:700; color:#dfe7e2; }
-    .tab.active{ background:rgba(18,242,123,.15); color:#eafff1; border:1px solid rgba(18,242,123,.35); }
-  </style>
+  }
+  *{box-sizing: border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%; background:var(--bg); color:var(--t-primary); font: 16px/1.2 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif; margin:0;}
+  .app{
+    min-height: 100dvh;
+    display:flex; flex-direction:column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header{
+    position:sticky; top:0; z-index: 10;
+    background: var(--bg-elev);
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .bar{
+    display:flex; align-items:center; gap:10px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-top)) 16px;
+    padding-top: 14px;
+  }
+  .title{
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .title h1{
+    font-size: 17px; margin:0; font-weight: 700;
+    letter-spacing:.2px;
+  }
+  .subtitle{font-size:12px; color: var(--t-muted); display:flex; align-items:center; gap:6px;}
+  .status-dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--warn); box-shadow: 0 0 0 3px color-mix(in oklab, var(--warn) 20%, transparent);
+  }
+  .status-disconnected{ background: var(--err); }
+  .status-connecting{ background: var(--warn); }
+  .status-connected{ background: var(--ok); }
+  .spacer{ flex:1; }
+  .icon-btn{
+    width:34px; height:34px; border-radius:10px; background:var(--bg);
+    border:1px solid var(--border); display:grid; place-items:center;
+    box-shadow: var(--shadow);
+    cursor:pointer;
+  }
+  .icon-btn:active{ transform: scale(.98); }
+  .icon{ width:20px; height:20px; display:block; }
+  main{
+    flex:1; overflow:auto; -webkit-overflow-scrolling: touch;
+    padding: 14px 12px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 96%, black) 0%, var(--bg) 30%);
+  }
+  .hint{
+    text-align:center; color: var(--t-muted);
+    font-size: 13px; margin: 12px 0;
+  }
+  .bubble{
+    max-width: 76%;
+    padding: 10px 12px; border-radius: 16px;
+    margin: 6px 0; word-wrap: break-word; word-break: break-word;
+    position: relative;
+  }
+  .msg-row{ display:flex; }
+  .me{ justify-content: flex-end; }
+  .me .bubble{
+    background: var(--sent); color: white; border-bottom-right-radius: 6px;
+  }
+  .them .bubble{
+    background: var(--recv); color: var(--t-primary); border-bottom-left-radius: 6px;
+  }
+  .time{
+    display:block; font-size: 11px; opacity: .7; margin-top: 6px;
+  }
+  footer{
+    position: sticky; bottom: 0; background: var(--bg-elev);
+    box-shadow: 0 -1px 0 var(--border);
+  }
+  .composer{
+    display:flex; align-items:flex-end; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
+  }
+  .field{
+    flex:1; display:flex; align-items:center; gap:8px;
+    background: var(--bg-input); border:1px solid var(--border);
+    border-radius: 18px; padding: 10px 12px;
+  }
+  textarea{
+    flex:1; border:0; outline:0; background:transparent; color:var(--t-primary);
+    resize:none; max-height: 110px; height: 22px; line-height: 22px;
+    font: inherit;
+  }
+  .send{
+    border:0; outline:0;
+    background: var(--accent);
+    color:white; padding: 10px 14px; border-radius: 14px; font-weight: 700;
+    opacity:.5;
+  }
+  .send.ready{ opacity:1; }
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background: var(--bg-input); border:1px dashed var(--border);
+    color: var(--t-secondary);
+    padding:10px 12px; border-radius: 12px; font-size: 13px;
+  }
+  /* Sheet */
+  .sheet-backdrop{
+    position: fixed; inset:0; background: rgba(0,0,0,.35);
+    backdrop-filter: blur(3px);
+    opacity:0; pointer-events:none; transition: .25s ease;
+  }
+  .sheet{ position: fixed; left:0; right:0; bottom: -70%;
+    background: var(--bg-elev); border-top-left-radius: 20px; border-top-right-radius: 20px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.35); padding-bottom: env(safe-area-inset-bottom);
+    transition: .3s ease;
+  }
+  .sheet.open + .sheet-backdrop{ opacity:1; pointer-events: all; }
+  .sheet.open{ bottom: 0; }
+  .sheet .grip{
+    width:48px; height:5px; border-radius:3px; background: var(--border);
+    margin: 10px auto;
+  }
+  .sheet .content{ padding: 8px 16px 18px; }
+  .tabs{ display:flex; gap:8px; background: var(--bg); padding:6px; border-radius: 14px; border:1px solid var(--border); }
+  .tabs button{ flex:1; border:0; background:transparent; color: var(--t-secondary); padding:8px 12px; border-radius: 10px; font-weight:600; }
+  .tabs button.active{ background: var(--bg-elev); color: var(--t-primary); border:1px solid var(--border); }
+  .section{ margin-top: 14px; }
+  .section h3{ font-size: 14px; color: var(--t-secondary); margin: 0 0 8px 0; }
+  .row{ display:flex; gap:8px; }
+  .row > * { flex:1; }
+  textarea.offer, textarea.answer{
+    width:100%; min-height: 120px; background: var(--bg-input); border:1px solid var(--border); border-radius: 12px; color: var(--t-primary);
+    padding: 10px; font: 13px/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  .small{ font-size: 12px; color: var(--t-muted); }
+  .btn{ border:1px solid var(--border); background:var(--bg-input); color:var(--t-primary); padding: 10px 12px; border-radius: 12px; font-weight:600; }
+  .btn.primary{ background: var(--accent); border-color: var(--accent); color:white; }
+  .btn.danger{ background: var(--err); border-color: var(--err); color:white; }
+  .btn-row{ display:flex; gap:10px; }
+  .kudo { text-align:center; font-size:12px; color: var(--t-muted); margin-top: 12px;}
+  .hidden{ display:none !important; }
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="navbar">
+<div class="app">
+  <header>
+    <div class="bar">
       <div class="title">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l3.09 6.26 6.91 1.01-5 4.87 1.18 6.86L12 17.77l-6.18 3.23L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#12f27b" stroke-width="1.5"/></svg>
-        <div>GTA Alzenau</div>
-        <span class="chip">63755</span>
+        <h1 id="chatTitle">Neuer Chat</h1>
+        <div class="subtitle">
+          <div id="statusDot" class="status-dot status-disconnected"></div>
+          <span id="statusText">Offline • kein Peer verbunden</span>
+        </div>
       </div>
-      <div class="tools">
-        <button class="btn" id="btnFull">Vollbild</button>
-      </div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="btnConnect" aria-label="Verbinden" title="Verbinden">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4"/>
+          <path d="M21 9a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4"/>
+          <path d="M7 12h10"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="btnMore" aria-label="Mehr" title="Mehr">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+        </svg>
+      </button>
     </div>
+  </header>
 
-    <div class="content">
-      <div class="filterbar" id="filterbar"></div>
+  <main id="timeline" aria-live="polite">
+    <div class="hint">Tippe oben auf „Verbinden“, um einen Peer‑to‑Peer‑Chat ohne Server zu starten. Alles bleibt lokal &amp; Ende‑zu‑Ende verschlüsselt (WebRTC).</div>
+  </main>
 
-      <div class="mapwrap">
-        <div class="card" id="mapCard">
-          <div class="card-head">
-            <div class="head-left">
-              <div style="font-weight:800;">Karte & POIs</div>
-              <div class="search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M22 22l-5.35-5.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-                <input id="search" type="search" placeholder="Suche Orte…" enterkeyhint="search">
-              </div>
-            </div>
-            <div class="tools">
-              <button class="btn" id="btnZoomIn">+</button>
-              <button class="btn" id="btnZoomOut">−</button>
-              <button class="btn" id="btnLocate">Ortung</button>
-              <button class="btn" id="btnReload">POIs laden</button>
-            </div>
-          </div>
-          <div id="map">
-            <div class="tiles" id="tiles"></div>
-            <div id="markers"></div>
+  <footer>
+    <div class="composer">
+      <div class="field">
+        <button class="icon-btn" id="btnClearInput" title="Leeren">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18"/>
+            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6l1-3h4l1 3"/>
+          </svg>
+        </button>
+        <textarea id="input" placeholder="Nachricht" rows="1"></textarea>
+      </div>
+      <button class="send" id="sendBtn" disabled>Senden</button>
+    </div>
+  </footer>
+</div>
 
-            <div class="minimap-wrap">
-              <div class="minimap">
-                <div class="north">N</div>
-                <div class="player" id="player">
-                  <svg viewBox="0 0 24 24"><path d="M12 2 L20 22 L12 18 L4 22 Z" fill="#12f27b"/></svg>
-                </div>
-              </div>
-            </div>
+<!-- Bottom Sheet: Connect & Settings -->
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="grip"></div>
+  <div class="content">
+    <div class="tabs" role="tablist">
+      <button id="tabConnect" role="tab" aria-selected="true" class="active">Verbinden</button>
+      <button id="tabSettings" role="tab" aria-selected="false">Einstellungen</button>
+    </div>
+    <div id="connectPane" class="pane">
+      <div class="section">
+        <h3>Wie funktioniert’s?</h3>
+        <p class="small">Kein Backend. Verbindung läuft direkt Gerät‑zu‑Gerät via WebRTC DataChannel. Für die Kopplung wird einmalig ein Text („Angebot/Antwort“) manuell ausgetauscht (z. B. per AirDrop, iMessage).</p>
+      </div>
 
-            <div class="attr">
-              © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende · POIs via Overpass
-            </div>
-          </div>
+      <div class="section">
+        <div class="tabs" id="roleTabs">
+          <button id="roleStarter" class="active">Ich starte</button>
+          <button id="roleJoiner">Ich trete bei</button>
         </div>
       </div>
 
-      <div class="legend" id="legend"></div>
+      <div id="starterFlow" class="section">
+        <h3>1) Angebot erstellen &amp; teilen</h3>
+        <div class="btn-row" style="margin-bottom:8px;">
+          <button class="btn primary" id="btnCreateOffer">Angebot erzeugen</button>
+          <button class="btn" id="btnCopyOffer" disabled>Kopieren</button>
+        </div>
+        <textarea class="offer" id="offerOut" placeholder="Hier erscheint dein Angebot (SDP)…" readonly></textarea>
+        <p class="small">Sende diesen Text an dein Gegenüber. Dann fügt er ihn bei sich ein und schickt dir die „Antwort“ zurück.</p>
 
-      <div class="tabbar">
-        <div class="tab active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2v-9z" stroke="currentColor" stroke-width="1.6"/></svg>Start</div>
-        <div class="tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Protokoll</div>
-        <div class="tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Mehr</div>
+        <h3>2) Antwort einfügen</h3>
+        <textarea class="answer" id="answerIn" placeholder="Antwort des Gegenübers hier einfügen…"></textarea>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn primary" id="btnAcceptAnswer" disabled>Antwort akzeptieren</button>
+          <button class="btn" id="btnResetStarter">Zurücksetzen</button>
+        </div>
+      </div>
+
+      <div id="joinerFlow" class="section hidden">
+        <h3>1) Angebot einfügen</h3>
+        <textarea class="offer" id="offerIn" placeholder="Angebot des Gegenübers hier einfügen…"></textarea>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn primary" id="btnAcceptOffer" disabled>Angebot akzeptieren</button>
+          <button class="btn" id="btnResetJoiner">Zurücksetzen</button>
+        </div>
+
+        <h3>2) Antwort erzeugen &amp; zurücksenden</h3>
+        <div class="btn-row" style="margin-bottom:8px;">
+          <button class="btn" id="btnCopyAnswer" disabled>Kopieren</button>
+        </div>
+        <textarea class="answer" id="answerOut" placeholder="Hier erscheint deine Antwort (SDP)…" readonly></textarea>
+        <p class="small">Schicke diese Antwort zurück. Sobald der andere sie eingefügt hat, seid ihr verbunden.</p>
+      </div>
+      <div class="kudo">Tipp: „Zum Home‑Bildschirm“ hinzufügen für echte App‑Optik.</div>
+    </div>
+
+    <div id="settingsPane" class="pane hidden">
+      <div class="section">
+        <h3>Profil</h3>
+        <div class="row">
+          <input id="displayName" class="btn" placeholder="Dein Anzeigename" />
+          <button id="btnSaveProfile" class="btn primary">Speichern</button>
+        </div>
+      </div>
+      <div class="section">
+        <h3>Chat</h3>
+        <div class="btn-row">
+          <button id="btnExport" class="btn">Chat exportieren</button>
+          <button id="btnImport" class="btn">Chat importieren</button>
+          <button id="btnClearChat" class="btn danger">Alles löschen</button>
+        </div>
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+      </div>
+      <div class="section">
+        <h3>Info &amp; Datenschutz</h3>
+        <p class="small">
+          Nachrichten werden lokal auf deinem Gerät gespeichert (localStorage). Es gibt keine Server. WebRTC verschlüsselt die Verbindung (DTLS). Größere Dateien werden nicht unterstützt, Fokus auf Text‑Chat.
+        </p>
       </div>
     </div>
   </div>
+</div>
+<div id="sheetBackdrop" class="sheet-backdrop" aria-hidden="true"></div>
 
-  <template id="tpl-infocard">
-    <div class="infocard">
-      <div class="name"></div>
-      <div class="meta"></div>
-      <button class="close-tip">×</button>
-    </div>
-  </template>
+<script>
+(() => {
+  "use strict";
 
-  <script>
-  (function(){
-    const tileSize = 256;
-    const mapEl = document.getElementById('map');
-    const tilesEl = document.getElementById('tiles');
-    const markersEl = document.getElementById('markers');
-    const searchEl = document.getElementById('search');
-    const btnIn = document.getElementById('btnZoomIn');
-    const btnOut = document.getElementById('btnZoomOut');
-    const btnLocate = document.getElementById('btnLocate');
-    const btnReload = document.getElementById('btnReload');
-    const btnFull = document.getElementById('btnFull');
-    const mapCard = document.getElementById('mapCard');
-    const filterbar = document.getElementById('filterbar');
-    const legend = document.getElementById('legend');
+  // ---------- DOM helpers
+  const $ = sel => document.querySelector(sel);
+  const on = (el, ev, fn, opts) => el.addEventListener(ev, fn, opts);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    // Alzenau center & bbox
-    let center = { lat: 50.090, lon: 9.070 };
-    const bbox = { s: 50.06, w: 9.02, n: 50.12, e: 9.12 }; // generous around 63755
-    let zoom = 14;
-    let world = latLonToWorld(center.lat, center.lon, zoom);
-    let viewport = { w: mapEl.clientWidth, h: mapEl.clientHeight };
+  // ---------- State
+  const state = {
+    pc: null,
+    dc: null,
+    role: "starter", // or "joiner"
+    connected: false,
+    history: [], // {who:'me'|'them', text, ts}
+    peerLabel: "Peer",
+    selfName: localStorage.getItem("p2p_name") || "Ich",
+    chatKey: "p2p_history_v1",
+  };
 
-    const CATS = [
-      { key:'food',   name:'Essen',       color:'#12f27b', osm:[['amenity', /(restaurant|fast_food|cafe|biergarten)/i]] },
-      { key:'drink',  name:'Bars/Pubs',   color:'#ff69f0', osm:[['amenity', /(bar|pub)/i]] },
-      { key:'shop',   name:'Einkauf',     color:'#00d2ff', osm:[['shop', /(supermarket|convenience|bakery|butcher)/i]] },
-      { key:'money',  name:'Geld',        color:'#ffd400', osm:[['amenity', /(bank|atm)/i]] },
-      { key:'travel', name:'Mobilität',   color:'#ffa155', osm:[['amenity', /(fuel|charging_station|parking|bus_station|taxi)/i], ['railway', /(station)/i]] },
-      { key:'health', name:'Gesundheit',  color:'#ff6b6b', osm:[['amenity', /(hospital|clinic|doctors|dentist|pharmacy)/i]] },
-      { key:'safety', name:'Sicherheit',  color:'#8cff66', osm:[['amenity', /(police|fire_station)/i]] },
-      { key:'leisure',name:'Freizeit',    color:'#7bffb6', osm:[['amenity', /(cinema|theatre|nightclub|gym|sports_centre|swimming_pool|playground)/i], ['leisure', /(park)/i]] },
-      { key:'services',name:'Service',    color:'#b9b9ff', osm:[['amenity', /(post_office|library)/i]] },
-    ];
-    const STATE = { enabled: Object.fromEntries(CATS.map(c=>[c.key,true])) };
-    const ICONS = {
-      food:    '<path d="M6 3v18M10 3v8a3 3 0 006 0V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
-      drink:   '<path d="M4 4h16l-2 6a7 7 0 01-7 5 7 7 0 01-7-5L4 4zm5 11v3a3 3 0 006 0v-3" stroke="currentColor" stroke-width="2" fill="none"/>',
-      shop:    '<path d="M3 9l2-5h14l2 5v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9zm4 5h10" stroke="currentColor" stroke-width="2" fill="none"/>',
-      money:   '<path d="M4 7h16v10H4zM8 12h8M6 10v4M18 10v4" stroke="currentColor" stroke-width="2" fill="none"/>',
-      travel:  '<path d="M5 16h14l-1-5H6l-1 5zm2 5a2 2 0 110-4 2 2 0 010 4zm10 0a2 2 0 110-4 2 2 0 010 4z" stroke="currentColor" stroke-width="2" fill="none"/>',
-      health:  '<path d="M12 3v18M3 12h18" stroke="currentColor" stroke-width="2" />',
-      safety:  '<path d="M12 3l8 4v6c0 5-3.5 7.5-8 8-4.5-.5-8-3-8-8V7l8-4z" stroke="currentColor" stroke-width="2" fill="none"/>',
-      leisure: '<path d="M4 18h16M6 18V6h12v12M9 9h6" stroke="currentColor" stroke-width="2" fill="none"/>',
-      services:'<path d="M4 4h16v12H4zM8 20h8" stroke="currentColor" stroke-width="2" fill="none"/>'
+  // ---------- UI Elements
+  const timeline = $("#timeline");
+  const input = $("#input");
+  const sendBtn = $("#sendBtn");
+  const statusDot = $("#statusDot");
+  const statusText = $("#statusText");
+  const chatTitle = $("#chatTitle");
+  const sheet = $("#sheet");
+  const sheetBackdrop = $("#sheetBackdrop");
+
+  const tabConnect = $("#tabConnect");
+  const tabSettings = $("#tabSettings");
+  const connectPane = $("#connectPane");
+  const settingsPane = $("#settingsPane");
+  const roleStarter = $("#roleStarter");
+  const roleJoiner = $("#roleJoiner");
+  const starterFlow = $("#starterFlow");
+  const joinerFlow = $("#joinerFlow");
+
+  const offerOut = $("#offerOut");
+  const answerIn = $("#answerIn");
+  const btnCreateOffer = $("#btnCreateOffer");
+  const btnCopyOffer = $("#btnCopyOffer");
+  const btnAcceptAnswer = $("#btnAcceptAnswer");
+  const btnResetStarter = $("#btnResetStarter");
+
+  const offerIn = $("#offerIn");
+  const answerOut = $("#answerOut");
+  const btnAcceptOffer = $("#btnAcceptOffer");
+  const btnCopyAnswer = $("#btnCopyAnswer");
+  const btnResetJoiner = $("#btnResetJoiner");
+
+  const displayName = $("#displayName");
+  const btnSaveProfile = $("#btnSaveProfile");
+  const btnExport = $("#btnExport");
+  const btnImport = $("#btnImport");
+  const importFile = $("#importFile");
+  const btnClearChat = $("#btnClearChat");
+  const btnConnect = $("#btnConnect");
+  const btnMore = $("#btnMore");
+  const btnClearInput = $("#btnClearInput");
+
+  // ---------- Init
+  function init(){
+    displayName.value = state.selfName;
+    loadHistory();
+    renderHistory();
+    updateStatus("disconnected", "Offline • kein Peer verbunden");
+    autoResizeTextarea();
+  }
+
+  // ---------- History
+  function loadHistory(){
+    try{
+      const raw = localStorage.getItem(state.chatKey);
+      if(raw){ state.history = JSON.parse(raw); }
+    }catch(e){ console.warn(e); }
+  }
+  function saveHistory(){
+    try{
+      localStorage.setItem(state.chatKey, JSON.stringify(state.history));
+    }catch(e){ console.warn(e); }
+  }
+  function addMessage(who, text, ts = Date.now()){
+    state.history.push({who, text, ts});
+    saveHistory();
+    renderMessage({who, text, ts});
+  }
+
+  function renderHistory(){
+    timeline.innerHTML = '<div class="hint">Lokaler Verlauf • nur auf diesem Gerät gespeichert</div>';
+    for(const msg of state.history){
+      renderMessage(msg, false);
+    }
+    scrollToBottom();
+  }
+  function renderMessage(msg, shouldScroll = true){
+    const row = document.createElement("div");
+    row.className = "msg-row " + (msg.who === "me" ? "me" : "them");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = msg.text;
+    const time = document.createElement("span");
+    time.className = "time";
+    const dt = new Date(msg.ts);
+    time.textContent = dt.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    bubble.appendChild(time);
+    row.appendChild(bubble);
+    timeline.appendChild(row);
+    if(shouldScroll) scrollToBottom();
+  }
+  function scrollToBottom(){
+    requestAnimationFrame(() => { timeline.scrollTop = timeline.scrollHeight; });
+  }
+
+  // ---------- Status UI
+  function updateStatus(kind, text){
+    statusText.textContent = text;
+    statusDot.classList.remove("status-disconnected","status-connecting","status-connected");
+    if(kind === "disconnected") statusDot.classList.add("status-disconnected");
+    if(kind === "connecting") statusDot.classList.add("status-connecting");
+    if(kind === "connected") statusDot.classList.add("status-connected");
+  }
+
+  // ---------- Sheet controls
+  function openSheet(){
+    sheet.classList.add("open");
+    sheetBackdrop.classList.add("open");
+    sheet.setAttribute("aria-hidden", "false");
+  }
+  function closeSheet(){
+    sheet.classList.remove("open");
+    sheetBackdrop.classList.remove("open");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  on(sheetBackdrop, "click", closeSheet);
+  on(btnConnect, "click", openSheet);
+  on(btnMore, "click", () => {
+    openSheet();
+    selectTab("settings");
+  });
+
+  // Tabs
+  function selectTab(which){
+    if(which === "connect"){
+      tabConnect.classList.add("active"); tabConnect.setAttribute("aria-selected","true");
+      tabSettings.classList.remove("active"); tabSettings.setAttribute("aria-selected","false");
+      connectPane.classList.remove("hidden"); settingsPane.classList.add("hidden");
+    }else{
+      tabSettings.classList.add("active"); tabSettings.setAttribute("aria-selected","true");
+      tabConnect.classList.remove("active"); tabConnect.setAttribute("aria-selected","false");
+      settingsPane.classList.remove("hidden"); connectPane.classList.add("hidden");
+    }
+  }
+  on(tabConnect, "click", () => selectTab("connect"));
+  on(tabSettings, "click", () => selectTab("settings"));
+
+  // Role switch
+  function selectRole(role){
+    state.role = role;
+    if(role === "starter"){
+      roleStarter.classList.add("active");
+      roleJoiner.classList.remove("active");
+      starterFlow.classList.remove("hidden");
+      joinerFlow.classList.add("hidden");
+    }else{
+      roleJoiner.classList.add("active");
+      roleStarter.classList.remove("active");
+      joinerFlow.classList.remove("hidden");
+      starterFlow.classList.add("hidden");
+    }
+  }
+  on(roleStarter, "click", () => selectRole("starter"));
+  on(roleJoiner, "click", () => selectRole("joiner"));
+
+  // ---------- Composer
+  function autoResizeTextarea(){
+    input.style.height = "22px";
+    input.style.height = Math.min(input.scrollHeight, 110) + "px";
+  }
+  on(input, "input", () => {
+    autoResizeTextarea();
+    const hasText = input.value.trim().length > 0;
+    sendBtn.disabled = !hasText;
+    sendBtn.classList.toggle("ready", hasText);
+  });
+  on(btnClearInput, "click", () => { input.value = ""; input.dispatchEvent(new Event("input")); input.focus(); });
+
+  async function sendMessage(){
+    const text = input.value.trim();
+    if(!text) return;
+    addMessage("me", text);
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+
+    // Try to send via datachannel if connected
+    try{
+      if(state.connected && state.dc && state.dc.readyState === "open"){
+        state.dc.send(JSON.stringify({type:"msg", text, ts: Date.now(), name: state.selfName}));
+      }
+    }catch(e){ console.warn("Send failed", e); }
+  }
+  on(sendBtn, "click", sendMessage);
+  on(input, "keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // ---------- WebRTC (no backend; manual SDP exchange)
+  const rtcConfig = {
+    iceServers: [
+      {urls: ["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}
+    ]
+  };
+
+  function makePeer(){
+    cleanupPeer();
+    state.pc = new RTCPeerConnection(rtcConfig);
+    state.pc.onconnectionstatechange = () => {
+      const s = state.pc.connectionState;
+      if(s === "connected"){
+        state.connected = true;
+        updateStatus("connected", `Verbunden mit ${state.peerLabel}`);
+        chatTitle.textContent = state.peerLabel;
+        closeSheet();
+      } else if(s === "connecting"){
+        updateStatus("connecting", "Verbinde…");
+      } else if(s === "failed" || s === "disconnected"){
+        state.connected = false;
+        updateStatus("disconnected", "Verbindung getrennt");
+      }
     };
-
-    // UI: filters
-    buildFilters();
-    buildLegend();
-
-    // Map rendering
-    renderTiles();
-    window.addEventListener('resize', ()=>{ renderTiles(); renderMarkers(); }, {passive:true});
-
-    // Interactions
-    let isPanning=false, lastX=0,lastY=0, pinchStartDist=0, startZoom=zoom;
-    mapEl.addEventListener('pointerdown', (e)=>{ isPanning=true; lastX=e.clientX; lastY=e.clientY; mapEl.setPointerCapture(e.pointerId); });
-    mapEl.addEventListener('pointermove', (e)=>{
-      if(!isPanning) return;
-      const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; world.x -= dx; world.y -= dy;
-      const ll = worldToLatLon(world.x, world.y, zoom); center=ll; renderTiles(); renderMarkers();
-    });
-    window.addEventListener('pointerup', ()=>{ isPanning=false; });
-    mapEl.addEventListener('wheel', (e)=>{ e.preventDefault(); setZoom(zoom - Math.sign(e.deltaY), {x:e.clientX, y:e.clientY}); }, {passive:false});
-
-    mapEl.addEventListener('touchstart', (e)=>{ if(e.touches.length===2){ pinchStartDist=dist(e.touches[0], e.touches[1]); startZoom=zoom; } }, {passive:true});
-    mapEl.addEventListener('touchmove', (e)=>{
-      if(e.touches.length===2){ e.preventDefault(); const d=dist(e.touches[0], e.touches[1]); const factor=d/pinchStartDist; const target=startZoom+Math.log2(factor); setZoom(Math.round(target), {x:(e.touches[0].clientX+e.touches[1].clientX)/2, y:(e.touches[0].clientY+e.touches[1].clientY)/2}); }
-    }, {passive:false});
-    function dist(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
-
-    btnIn.addEventListener('click', ()=>setZoom(zoom+1));
-    btnOut.addEventListener('click', ()=>setZoom(zoom-1));
-    btnLocate.addEventListener('click', locate);
-    btnReload.addEventListener('click', loadPOIs);
-    btnFull.addEventListener('click', ()=>{
-      document.documentElement.requestFullscreen?.(); // on iPhone won't do much, but keeps code simple
-    });
-
-    searchEl.addEventListener('input', ()=>{ filterBySearch(searchEl.value); });
-
-    function setZoom(z, pivot){
-      z = Math.max(4, Math.min(19, z|0));
-      if (z===zoom && !pivot) return;
-      if (pivot){
-        const pre = { x: world.x - (viewport.w/2 - pivot.x), y: world.y - (viewport.h/2 - pivot.y) };
-        const latlon = worldToLatLon(pre.x, pre.y, zoom);
-        zoom = z;
-        world = latLonToWorld(latlon.lat, latlon.lon, zoom);
-        world.x = world.x + (viewport.w/2 - pivot.x);
-        world.y = world.y + (viewport.h/2 - pivot.y);
-        center = worldToLatLon(world.x, world.y, zoom);
-      } else {
-        zoom = z; world = latLonToWorld(center.lat, center.lon, zoom);
-      }
-      renderTiles(); renderMarkers();
-    }
-
-    function updateViewport(){ viewport.w = mapEl.clientWidth; viewport.h = mapEl.clientHeight; }
-    function renderTiles(){
-      updateViewport();
-      const leftWorld = world.x - viewport.w/2;
-      const topWorld  = world.y - viewport.h/2;
-      const rightWorld = world.x + viewport.w/2;
-      const bottomWorld = world.y + viewport.h/2;
-      const startX = Math.floor(leftWorld / tileSize);
-      const startY = Math.floor(topWorld  / tileSize);
-      const endX   = Math.floor(rightWorld / tileSize);
-      const endY   = Math.floor(bottomWorld / tileSize);
-      const tileCount = Math.pow(2, zoom);
-      tilesEl.innerHTML = '';
-      for(let ty=startY; ty<=endY; ty++){
-        if (ty<0||ty>=tileCount) continue;
-        for(let tx=startX; tx<=endX; tx++){
-          let wrappedX=tx; while(wrappedX<0) wrappedX+=tileCount; wrappedX%=tileCount;
-          const xPx = tx*tileSize - leftWorld, yPx = ty*tileSize - topWorld;
-          const img = new Image();
-          img.className='tile'; img.draggable=false; img.decoding='async'; img.loading='eager';
-          img.src = `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${ty}.png`;
-          img.style.transform = `translate3d(${xPx}px, ${yPx}px, 0)`;
-          tilesEl.appendChild(img);
-        }
-      }
-    }
-
-    function latLonToWorld(lat, lon, z){
-      const scale = Math.pow(2, z) * tileSize;
-      const x = (lon + 180) / 360 * scale;
-      const siny = Math.sin(lat * Math.PI / 180);
-      const y = (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) * scale;
-      return { x, y, scale };
-    }
-    function worldToLatLon(x, y, z){
-      const scale = Math.pow(2, z) * tileSize;
-      const lon = (x / scale) * 360 - 180;
-      const n = Math.PI - 2 * Math.PI * y / scale;
-      const lat = 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-      return { lat, lon };
-    }
-
-    /* --- POIs --- */
-    let POIS = []; // {lat, lon, name, catKey, tags}
-    const catFromTags = (tags)=>{
-      for (const c of CATS){
-        for (const [k, re] of c.osm){
-          if (tags && tags[k] && re.test(String(tags[k]))){ return c.key; }
-        }
-      }
-      // secondary mapping
-      if (tags && tags.leisure==='park') return 'leisure';
-      return null;
+    state.pc.onicegatheringstatechange = () => {
+      // could update UI if needed
     };
+    state.pc.ondatachannel = (ev) => {
+      state.dc = ev.channel;
+      attachDC();
+    };
+  }
 
-    async function loadPOIs(){
-      const endpoint = 'https://overpass-api.de/api/interpreter';
-      const q = `[out:json][timeout:25];
-        (
-          node["amenity"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          way["amenity"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          node["shop"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          way["shop"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          node["railway"="station"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          way["railway"="station"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          node["leisure"="park"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-          way["leisure"="park"]((${bbox.s},${bbox.w},${bbox.n},${bbox.e}));
-        );
-        out center tags;`;
+  function attachDC(){
+    const dc = state.dc;
+    if(!dc) return;
+    dc.onopen = () => {
+      state.connected = true;
+      updateStatus("connected", `Verbunden mit ${state.peerLabel}`);
+      chatTitle.textContent = state.peerLabel;
+      closeSheet();
+    };
+    dc.onclose = () => {
+      state.connected = false;
+      updateStatus("disconnected", "Verbindung geschlossen");
+    };
+    dc.onmessage = (ev) => {
       try{
-        btnReload.textContent = 'Laden…';
-        const res = await fetch(endpoint, { method:'POST', headers: {'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: 'data=' + encodeURIComponent(q)});
-        if(!res.ok) throw new Error('Overpass Fehler ' + res.status);
-        const data = await res.json();
-        const elements = data.elements||[];
-        POIS = elements.map(el=>{
-          const lat = el.lat ?? el.center?.lat;
-          const lon = el.lon ?? el.center?.lon;
-          const tags = el.tags||{};
-          const name = tags.name || (tags.amenity ? String(tags.amenity).replace(/_/g,' ') : (tags.shop?String(tags.shop): 'Ort'));
-          const catKey = catFromTags(tags);
-          return (lat&&lon&&catKey) ? {lat,lon,tags,name,catKey} : null;
-        }).filter(Boolean);
-        renderMarkers();
-        btnReload.textContent = 'POIs neu';
-      }catch(err){
-        console.error(err);
-        alert('POIs konnten nicht geladen werden. Evtl. später erneut versuchen.');
-        btnReload.textContent = 'POIs laden';
-      }
-    }
-
-    // Build markers
-    const markerPool = [];
-    function renderMarkers(){
-      markersEl.innerHTML='';
-      const vw = { w: mapEl.clientWidth, h: mapEl.clientHeight };
-      const leftWorld = world.x - vw.w/2;
-      const topWorld  = world.y - vw.h/2;
-
-      const frag = document.createDocumentFragment();
-      const seen = new Set();
-      for(const p of POIS){
-        if (!STATE.enabled[p.catKey]) continue;
-        const pos = latLonToWorld(p.lat, p.lon, zoom);
-        const x = pos.x - leftWorld, y = pos.y - topWorld;
-        if (x<-40||y<-40||x>vw.w+40||y>vw.h+80) continue;
-
-        const key = p.catKey + '|' + Math.round(x/28) + '|' + Math.round(y/28); // coarse cluster
-        if (seen.has(key)) continue; seen.add(key);
-
-        const m = document.createElement('div');
-        m.className='marker';
-        m.style.left = x+'px'; m.style.top=y+'px';
-        m.dataset.name = (p.name||'').toLowerCase();
-        m.dataset.cat = p.catKey;
-
-        const blip = document.createElement('div');
-        blip.className='blip';
-        blip.style.color = getCatColor(p.catKey);
-        blip.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">${ICONS[p.catKey]||ICONS.services}</svg>`;
-        m.appendChild(blip);
-
-        const pulse = document.createElement('div');
-        pulse.className='pulse';
-        pulse.style.boxShadow = `0 0 14px ${getCatColor(p.catKey)}, inset 0 0 18px ${getCatColor(p.catKey)}`;
-        m.appendChild(pulse);
-
-        // info card
-        const tpl = document.getElementById('tpl-infocard');
-        const card = tpl.content.firstElementChild.cloneNode(true);
-        card.querySelector('.name').textContent = p.name;
-        const lines = [];
-        if (p.tags.amenity) lines.push('Amenity: '+p.tags.amenity);
-        if (p.tags.shop) lines.push('Shop: '+p.tags.shop);
-        if (p.tags.opening_hours) lines.push('Öffnungszeiten: '+p.tags.opening_hours);
-        if (p.tags.operator) lines.push('Betreiber: '+p.tags.operator);
-        card.querySelector('.meta').textContent = lines.join(' · ');
-        card.querySelector('.close-tip').addEventListener('click', ()=> card.style.display='none');
-        m.appendChild(card);
-
-        m.addEventListener('click', ()=>{
-          document.querySelectorAll('.infocard').forEach(el=>el.style.display='none');
-          card.style.display='block';
-        });
-
-        frag.appendChild(m);
-      }
-      markersEl.appendChild(frag);
-    }
-
-    function getCatColor(key){ return (CATS.find(c=>c.key===key)?.color)||'#12f27b'; }
-
-    function filterBySearch(q){
-      q = (q||'').trim().toLowerCase();
-      for(const el of markersEl.children){
-        const ok = !q || el.dataset.name.includes(q);
-        el.style.display = ok ? '' : 'none';
-      }
-    }
-
-    // Build filter toggles
-    function buildFilters(){
-      filterbar.innerHTML='';
-      for(const c of CATS){
-        const label = document.createElement('label');
-        label.className='toggle active';
-        label.style.borderColor = c.color+'55';
-        label.style.background = c.color+'22';
-        label.innerHTML = `<input type="checkbox" checked> <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:${c.color};display:inline-block"></span>${c.name}</span>`;
-        const input = label.querySelector('input');
-        input.addEventListener('change', ()=>{ STATE.enabled[c.key]=input.checked; label.classList.toggle('active', input.checked); renderMarkers(); });
-        filterbar.appendChild(label);
-      }
-    }
-    function buildLegend(){
-      legend.innerHTML='';
-      for(const c of CATS){
-        const item = document.createElement('div');
-        item.className='item';
-        item.innerHTML = `<span class="swatch" style="background:${c.color}"></span>${c.name}`;
-        legend.appendChild(item);
-      }
-    }
-
-    /* Location */
-    function locate(){
-      if (!navigator.geolocation){ alert('Geolokalisierung wird nicht unterstützt.'); return; }
-      navigator.geolocation.getCurrentPosition((pos)=>{
-        const {latitude, longitude, heading} = pos.coords;
-        center = {lat:latitude, lon:longitude};
-        world = latLonToWorld(center.lat, center.lon, zoom);
-        renderTiles(); renderMarkers();
-        if (typeof heading === 'number' && !isNaN(heading)){
-          document.getElementById('player').style.transform = `rotate(${heading}deg)`;
+        const data = JSON.parse(ev.data);
+        if(data.type === "msg"){
+          if(data.name && data.name !== "Ich"){ state.peerLabel = data.name; chatTitle.textContent = state.peerLabel; }
+          addMessage("them", data.text, data.ts || Date.now());
+        } else if(data.type === "hello"){
+          state.peerLabel = data.name || "Peer";
+          chatTitle.textContent = state.peerLabel;
         }
-      }, (err)=> alert('Standort konnte nicht ermittelt werden: ' + err.message), { enableHighAccuracy:true, timeout:10000, maximumAge:5000 });
+      }catch(_){
+        // Fallback plain text
+        addMessage("them", String(ev.data));
+      }
+    };
+    // Identify ourselves
+    dc.onopen && dc.onopen();
+    try{
+      dc.send(JSON.stringify({type:"hello", name: state.selfName}));
+    }catch(_){}
+  }
+
+  async function createOffer(){
+    selectRole("starter");
+    makePeer();
+    state.dc = state.pc.createDataChannel("chat");
+    attachDC();
+
+    updateStatus("connecting", "Angebot wird erstellt…");
+    const offer = await state.pc.createOffer();
+    await state.pc.setLocalDescription(offer);
+
+    // Wait for ICE gathering to complete for a single-copy SDP
+    await waitForIceComplete(state.pc);
+    const sdp = btoa(JSON.stringify(state.pc.localDescription));
+    offerOut.value = sdp;
+    btnCopyOffer.disabled = !sdp;
+    updateStatus("connecting", "Angebot bereit — teile es mit dem Gegenüber");
+  }
+
+  async function acceptAnswer(){
+    const s = answerIn.value.trim();
+    if(!s) return;
+    try{
+      const desc = JSON.parse(atob(s));
+      await state.pc.setRemoteDescription(desc);
+      updateStatus("connecting", "Antwort akzeptiert — stelle Verbindung her…");
+    }catch(e){
+      alert("Konnte die Antwort nicht lesen. Stelle sicher, dass der komplette Text eingefügt wurde.");
+      console.error(e);
     }
+  }
 
-    // Initial
-    renderTiles();
-    loadPOIs();
+  async function acceptOffer(){
+    selectRole("joiner");
+    makePeer();
+    const s = offerIn.value.trim();
+    if(!s){ return; }
+    try{
+      const desc = JSON.parse(atob(s));
+      await state.pc.setRemoteDescription(desc);
 
-  })();
-  </script>
+      state.dc = state.pc.createDataChannel("chat"); // ensure we can receive if other doesn't create
+      attachDC();
+
+      const answer = await state.pc.createAnswer();
+      await state.pc.setLocalDescription(answer);
+      await waitForIceComplete(state.pc);
+      const sdp = btoa(JSON.stringify(state.pc.localDescription));
+      answerOut.value = sdp;
+      btnCopyAnswer.disabled = !sdp;
+      updateStatus("connecting", "Antwort erzeugt — gib sie zurück an den Starter");
+    }catch(e){
+      alert("Konnte das Angebot nicht lesen. Bitte prüfe den Text.");
+      console.error(e);
+    }
+  }
+
+  function cleanupPeer(){
+    try{ if(state.dc){ state.dc.close(); } }catch(_){}
+    try{ if(state.pc){ state.pc.close(); } }catch(_){}
+    state.dc = null; state.pc = null; state.connected = false;
+  }
+
+  function waitForIceComplete(pc){
+    return new Promise(resolve => {
+      if(pc.iceGatheringState === "complete"){ resolve(); return; }
+      const check = () => {
+        if(pc.iceGatheringState === "complete"){
+          pc.removeEventListener("icegatheringstatechange", check);
+          resolve();
+        }
+      };
+      pc.addEventListener("icegatheringstatechange", check);
+      // safety timeout
+      setTimeout(() => { resolve(); }, 3000);
+    });
+  }
+
+  // ---------- Settings / Profile
+  on(btnSaveProfile, "click", () => {
+    const name = displayName.value.trim() || "Ich";
+    state.selfName = name;
+    localStorage.setItem("p2p_name", name);
+    chatTitle.textContent = state.connected ? state.peerLabel : "Neuer Chat";
+    alert("Name gespeichert.");
+  });
+
+  on(btnExport, "click", () => {
+    const data = JSON.stringify({name: state.selfName, history: state.history}, null, 2);
+    const blob = new Blob([data], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "p2p-chat-export.json";
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  });
+  on(btnImport, "click", () => importFile.click());
+  on(importFile, "change", async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const text = await file.text();
+    try{
+      const obj = JSON.parse(text);
+      if(Array.isArray(obj.history)){
+        state.history = obj.history;
+        saveHistory();
+        renderHistory();
+        alert("Import erfolgreich.");
+      }else{
+        alert("Ungültige Datei.");
+      }
+    }catch(_){
+      alert("Konnte Datei nicht lesen.");
+    }
+    importFile.value = "";
+  });
+
+  on(btnClearChat, "click", () => {
+    if(confirm("Wirklich gesamten Chatverlauf löschen?")){
+      state.history = [];
+      saveHistory();
+      renderHistory();
+    }
+  });
+
+  // ---------- Connect sheet controls
+  on(btnCreateOffer, "click", createOffer);
+  on(btnCopyOffer, "click", async () => {
+    await navigator.clipboard.writeText(offerOut.value);
+    btnCopyOffer.textContent = "Kopiert";
+    setTimeout(()=>btnCopyOffer.textContent="Kopieren", 1200);
+  });
+  on(answerIn, "input", () => {
+    btnAcceptAnswer.disabled = answerIn.value.trim().length === 0;
+  });
+  on(btnAcceptAnswer, "click", acceptAnswer);
+  on(btnResetStarter, "click", () => {
+    offerOut.value = ""; answerIn.value = ""; btnCopyOffer.disabled = true; btnAcceptAnswer.disabled = true;
+    cleanupPeer(); updateStatus("disconnected", "Offline • kein Peer verbunden");
+  });
+
+  on(offerIn, "input", () => {
+    btnAcceptOffer.disabled = offerIn.value.trim().length === 0;
+  });
+  on(btnAcceptOffer, "click", acceptOffer);
+  on(btnCopyAnswer, "click", async () => {
+    await navigator.clipboard.writeText(answerOut.value);
+    btnCopyAnswer.textContent = "Kopiert";
+    setTimeout(()=>btnCopyAnswer.textContent="Kopieren", 1200);
+  });
+  on(btnResetJoiner, "click", () => {
+    offerIn.value = ""; answerOut.value = ""; btnCopyAnswer.disabled = true;
+    cleanupPeer(); updateStatus("disconnected", "Offline • kein Peer verbunden");
+  });
+
+  // Open/close the sheet with buttons
+  on($("#sheetBackdrop"), "click", closeSheet);
+
+  // ---------- Start
+  init();
+})();
+</script>
 </body>
 </html>
